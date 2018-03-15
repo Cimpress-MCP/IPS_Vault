@@ -1,0 +1,5 @@
+config.cfg
+components/**/.terraform
+components/**/terraform.tfstate
+components/**/terraform.tfstate.backup
+components/**/manifest.json

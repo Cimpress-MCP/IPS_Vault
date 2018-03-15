@@ -1,0 +1,5 @@
+{
+    "host": "{DUO_API_HOST_NAME}",
+    "ikey": "{DUO_IKEY}",
+    "skey": "{DUO_SKEY}"
+}

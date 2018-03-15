@@ -1,0 +1,6 @@
+{
+    "type"   : "file",
+    "options": { 
+        "file_path": "/opt/vault/log/vault_audit.log"
+    }
+}

@@ -1,0 +1,3 @@
+{
+    "policy": "path \"aws/roles/*\" { capabilities = [\"create\", \"read\", \"update\", \"delete\", \"list\"] }"
+}

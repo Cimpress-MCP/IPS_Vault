@@ -1,0 +1,121 @@
+{
+  "min_packer_version": "0.12.0",
+  "variables"         : {
+    "aws_region"           : "{{env `TF_VAR_aws_region`}}",
+    "vault_module_version" : "0.0.9.1",
+    "vault_version"        : "0.9.2",
+    "consul_module_version": "v0.0.5",
+    "consul_version"       : "1.0.2",
+    "github_oauth_token"   : "{{env `GITHUB_OAUTH_TOKEN`}}",
+    "vpc_id"               : "{{env `TF_VAR_vpc_id`}}",
+    "subnet_id"            : "{{env `TF_VAR_subnet_id`}}",
+    "aws_profile"          : "{{env `AWS_PROFILE`}}",
+    "aws_vault_version"    : "v4.2.0"
+  },
+  "builders": [
+    {
+    "profile"          : "{{user `aws_profile`}}",
+    "vpc_id"           : "{{user `vpc_id`}}",
+    "subnet_id"        : "{{user `subnet_id`}}",
+    "ami_name"         : "vault-consul-amazon-linux-{{isotime | clean_ami_name}}",
+    "ami_description"  : "An Amazon Linux AMI with Vault {{user `vault_version`}} / Consul {{user `consul_version`}}.",
+    "instance_type"    : "t2.micro",
+    "name"             : "amazon-linux-ami",
+    "region"           : "{{user `aws_region`}}",
+    "type"             : "amazon-ebs",
+    "source_ami_filter": {
+      "filters": {
+        "virtualization-type"             : "hvm",
+        "architecture"                    : "x86_64",
+        "name"                            : "*amzn-ami-hvm-*",
+        "block-device-mapping.volume-type": "gp2",
+        "root-device-type"                : "ebs"
+      },
+      "owners"     : ["amazon"],
+      "most_recent": true
+    },
+    "ssh_username": "ec2-user"
+  }
+],
+  "provisioners": [
+    {
+      "type"       : "file",
+      "source"     : "./scripts/vaultsetup.sh",
+      "destination": "./vaultsetup.sh"
+    },   {
+      "type"       : "file",
+      "source"     : "./scripts/installchamber.sh",
+      "destination": "./installchamber.sh"
+    }, 
+     {
+      "type"  : "shell",
+      "inline": [
+        "sudo yum -y update",
+        "sudo yum install -y git",
+        "sudo yum install -y golang-bin"
+      ]
+    },
+    { 
+      "type"  : "shell",
+      "inline": [
+        "echo VAULT_ADDR=http://localhost:8200 >> /home/ec2-user/.bash_profile",
+        "echo export VAULT_ADDR >> /home/ec2-user/.bash_profile",
+        "echo GOPATH=/home/ec2-user/go >> /home/ec2-user/.bash_profile",
+        "echo export GOPATH >> /home/ec2-user/.bash_profile"
+      ]
+    },
+    {
+      "type"  : "shell",
+      "inline": [
+        "./installchamber.sh"
+      ]
+    }, 
+    {
+      "type"  : "shell",
+      "inline": [
+        "wget https://d1wk0tztpsntt1.cloudfront.net/linux/latest/install && sudo bash install"
+      ]
+    }, {
+      "type"  : "shell",
+      "inline": [
+        "sudo service rpcbind stop",
+        "sudo service nfslock stop",
+        "sudo service sendmail stop"
+      ]
+    }, {
+      "type"  : "shell",
+      "inline": [
+        "git clone https://{{user `github_oauth_token`}}@github.com/Cimpress-MCP/terraform-aws-vault.git /tmp/terraform-aws-vault"
+      ]
+    },{
+      "type"  : "shell",
+      "inline": [
+        "/tmp/terraform-aws-vault/modules/install-vault/install-vault --version {{user `vault_version`}}"
+      ]
+  },{
+    "type"  : "shell",
+    "inline": [
+      "git clone --branch {{user `consul_module_version`}} https://{{user `github_oauth_token`}}@github.com/hashicorp/terraform-aws-consul.git /tmp/terraform-aws-consul",
+      "/tmp/terraform-aws-consul/modules/install-consul/install-consul --version {{user `consul_version`}}",
+      "/tmp/terraform-aws-consul/modules/install-dnsmasq/install-dnsmasq"
+    ]
+  }, {
+    "type"  : "shell",
+    "inline": [
+      "sudo yum install -y https://s3.amazonaws.com/ec2-downloads-windows/SSMAgent/latest/linux_amd64/amazon-ssm-agent.rpm"
+    ]
+  }, {
+    "type"       : "file",
+    "source"     : "./supervisor/run-vaultsetup.conf",
+    "destination": "./run-vaultsetup.conf"
+  }, {
+    "type"  : "shell",
+    "inline": [
+      "sudo cp /home/ec2-user/run-vaultsetup.conf /etc/supervisor/conf.d/run-vaultsetup.conf",
+      "sudo chown root:root /etc/supervisor/conf.d/run-vaultsetup.conf"
+    ]
+  }
+
+]
+}
+
