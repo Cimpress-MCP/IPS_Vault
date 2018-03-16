@@ -50,9 +50,9 @@ function build_cluster() {
         exit 1
     fi
 
-    terraform plan -out plan.out &>/dev/null
+#    terraform plan &>/dev/null
 
-    terraform apply -auto-approve plan.out
+    terraform apply --auto-approve
     if [ $? -ne 0 ]; then
         printf "$red" "Error: Terraform apply failed"
         exit 1
