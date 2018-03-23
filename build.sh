@@ -398,7 +398,7 @@ function check_parameters() {
                 WAIT_FOR_VPCSELECT=0
                 ;;
                 n|N)
-                DEDICATED_VPC=1
+                DEDICATED_VPC=0
                 WAIT_FOR_VPCSELECT=0
                 ;;
                 *)
