@@ -448,7 +448,7 @@ if [ "$DESTROY" == 1 ]; then
         teardown_manual
         teardown_cluster
     elif [ "$D_INFRA" == 1 ]; then
-        teardown_packer
+        # teardown_packer
         teardown_cluster
     elif [ "$D_DATA" == 1 ]; then
         teardown_manual
@@ -469,11 +469,8 @@ if [ "$DEDICATED_VPC" == 1 ]; then
 else
     cd vpcselect 
     rm -f vpcid.txt
-    go get 
-    if [ $? -ne 0 ]; then
-        log_error "Error: could not retreive go dependencies"
-        exit 1
-    fi
+    rm -f vpcnetwork.txt
+    go get
     go build 
     if [ $? -ne 0 ]; then
         log_error "Error: could not build vpcselect?"
@@ -489,6 +486,8 @@ else
         log_error "Could not find VPC information, please check your aws configuration."
         exit 1
     fi
+    export TF_VAR_vpc_network=$(cat vpcnetwork.txt)
+    write_config
     cd ..
 fi
 

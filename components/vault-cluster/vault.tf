@@ -13,7 +13,7 @@ module "vault_cluster" {
   enable_s3_backend = true
   s3_bucket_name    = "${var.cluster_name}-vault-storage"
 
-  vpc_id     = "${var.vcp_id}"
+  vpc_id     = "${var.vpc_id}"
   subnet_ids = "${data.aws_subnet_ids.public.ids}"
 
   load_balancers = ["${module.vault_elb.load_balancer_name}"]

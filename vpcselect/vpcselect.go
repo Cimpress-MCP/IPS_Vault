@@ -10,6 +10,7 @@ import (
 
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/ec2"
+	"github.com/davecgh/go-spew/spew"
 )
 
 func main() {
@@ -44,6 +45,8 @@ func main() {
 	text = strings.Replace(text, "\n", "", -1)
 	vpcIndex, _ := strconv.Atoi(text)
 
+	spew.Dump(vpcs.Vpcs[vpcIndex])
+
 	fo, err := os.Create("vpcid.txt")
 	if err != nil {
 		log.Fatal(err)
@@ -56,4 +59,17 @@ func main() {
 		}
 	}()
 	fo.WriteString(*vpcs.Vpcs[vpcIndex].VpcId)
+
+	fn, err := os.Create("vpcnetwork.txt")
+	if err != nil {
+		log.Fatal(err)
+		os.Exit(1)
+	}
+	defer func() {
+		if err := fn.Close(); err != nil {
+			log.Fatal(err)
+			panic(err)
+		}
+	}()
+	fn.WriteString(*vpcs.Vpcs[vpcIndex].CidrBlock)
 }

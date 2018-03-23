@@ -3,3 +3,5 @@ components/**/.terraform
 components/**/terraform.tfstate
 components/**/terraform.tfstate.backup
 components/**/manifest.json
+vpcselect/vpcid.txt
+vpcselect/vpcnetork.txt

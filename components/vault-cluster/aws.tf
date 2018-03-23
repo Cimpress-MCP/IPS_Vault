@@ -23,7 +23,9 @@ data "aws_subnet_ids" "public" {
 }
 
 data "aws_subnet_ids" "private" {
-  vpc_id "${var.vpc_id}" tags {
+  vpc_id = "${var.vpc_id}"
+
+  tags {
     Env = "Private"
   }
 }
