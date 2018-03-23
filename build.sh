@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 
-SCRIPT_DIR="$( cd "$( dirname "$0" )" && pwd )"
+readonly SCRIPT_DIR="$( cd "$( dirname "$0" )" && pwd )"
+readonly SCRIPT_NAME="$(basename "$0")"
 
 # load configs
 source $SCRIPT_DIR/config.shlib
@@ -13,86 +14,140 @@ blue='\e[1;34m%s\e[0m\n'
 magenta='\e[1;35m%s\e[0m\n'
 cyan='\e[1;36m%s\e[0m\n'
 
-function build_ami() {
-    cd $SCRIPT_DIR/components/vault-ami
-    printf "$blue" "Building VPC for packer AMI generation"
-    ## terraform will build the VPC and SSL certs
-    terraform init -upgrade=true >/dev/null
+function log {
+  local readonly level="$1"
+  local readonly message="$2"
+  local readonly timestamp=$(date +"%Y-%m-%d %H:%M:%S")
+  >&2 echo -e "${timestamp} [${level}] [$SCRIPT_NAME] ${message}"
+}
+
+function log_info {
+  local readonly message="$1"
+  log "INFO" "$message"
+  printf "$blue" "$message"
+}
+
+function log_warn {
+  local readonly message="$1"
+  log "WARN" "$message"
+  printf "$yellow" "$message"
+}
+
+function log_error {
+  local readonly message="$1"
+  log "ERROR" "$message"
+  printf "$red" "$message"
+}
+
+function assert_is_installed {
+  local readonly name="$1"
+
+  if [[ ! $(command -v ${name}) ]]; then
+    log_error "The binary '$name' is required by this script but is not installed or in the system's PATH."
+    exit 1
+  fi
+}
+
+function tf_init() {
+    terraform init -upgrade=true > /dev/null
     if [ $? -ne 0 ]; then
-        printf "$red" "Error: Terraform initialzation failed"
+        log_error "Error: Terraform initialzation failed"
         exit 1
     fi
-    terraform apply -auto-approve > /dev/null
+}
+
+function tf_apply() {
+    terraform apply --auto-approve
+    if [ $? -ne 0 ]; then
+        log_error "Error: Terraform apply failed"
+        exit 1
+    fi
+}
+
+function tf_destroy() {
+    terraform destroy -force > /dev/null
+    if [ $? -ne 0 ]; then
+        log_error "Error: Terraform did not destroy properly"
+        exit 1
+    fi
+}
+
+function build_ami() {
+    cd $SCRIPT_DIR/components/vault-ami
+    log_info "Building VPC for packer AMI generation"
+
+    ## terraform will build the VPC
+    tf_init
+    tf_apply
 
     export TF_VAR_vpc_id=`terraform output vpc_id 2> /dev/null`
     export TF_VAR_subnet_id=`terraform output public_subnets 2> /dev/null | tail -1`
 
     packer build vault-consul.json
     if [ $? -ne 0 ]; then
-        printf "$red" "Error: Packer build failed"
+        log_error "Error: Packer build failed"
         exit 1
     fi
-    printf "$blue" "Tearing down VPC for packer (this may take some time)"
-    terraform destroy -force >/dev/null
-    if [ $? -ne 0 ]; then
-        printf "$red" "Error: VPC did not tear down properly"
-        exit 1
-    fi
+    log_info "Tearing down VPC for packer (this may take some time)"
+    tf_destroy
+    cd ../..
+}
+
+function build_cluster_vpc() {
+    cd $SCRIPT_DIR/components/vault-vpc 
+    log_info "Building VPC for Vault Cluster"
+    tf_init
+    tf_apply
+    export TF_VAR_vpc_id=$(terraform output vpc_id 2> /dev/null)
     cd ../..
 }
 
 function build_cluster() {
-    printf "$blue" "Creating Vault Cluster $TF_VAR_cluster_name"
+    log_info "Creating Vault Cluster $TF_VAR_cluster_name"
     cd $SCRIPT_DIR/components/vault-cluster
-    terraform init -upgrade=true >/dev/null
-    if [ $? -ne 0 ]; then
-        printf "$red" "Error: Terraform initialzation failed"
-        exit 1
-    fi
-
-    terraform plan -out plan.out &>/dev/null
-
-    terraform apply -auto-approve plan.out
-    if [ $? -ne 0 ]; then
-        printf "$red" "Error: Terraform apply failed"
-        exit 1
-    fi
-    rm -rf plan.out
-    printf "$blue" "Cluster has build successfully"
+    tf_init
+    tf_apply
+    log_info "Cluster has build successfully"
     cd ../..
 }
 
 function teardown_manual() {
     s3_name="${TF_VAR_cluster_name}-vault-storage"
 
-    printf "$blue" "Destroying S3 bucket $s3_name"
+    log_info "Destroying S3 bucket $s3_name"
     objs=$(aws s3api list-objects --bucket $s3_name --query 'Contents[*].Key' --output text)
     for o in $objs; do
         aws s3api delete-object --bucket $s3_name --key "${o}"
     done
 
-    printf "$blue" "Destroying data in Parameter Store"
+    log_info "Destroying data in Parameter Store"
     params=$(aws ssm describe-parameters --filters "Key=Name,Values=${TF_VAR_cluster_name}." --query 'Parameters[*].Name' --output text)
     for p in $params; do
         aws ssm delete-parameter --name "${p}"
     done
 }
 
-function teardown_cluster() {
-    printf "$blue" "Destroying Vault cluster $TF_VAR_cluster_name"
-    cd $SCRIPT_DIR/components/vault-cluster
-    terraform destroy -force 
-    if [ $? -ne 0 ]; then
-        printf "$red" "Error: Terraform Destroy failed"
-        exit 1
-    fi
+function teardown_vault_vpc() {
+    log_info "Destroying Vault Cluster VPC $TF_VAR_cluster_name"
+    cd $SCRIPT_DIR/components/vault-vpc
+    tf_destroy
     cd ../..
 }
 
+function teardown_cluster() {
+    log_info "Destroying Vault cluster $TF_VAR_cluster_name"
+    cd $SCRIPT_DIR/components/vault-cluster
+    tf_destroy
+    cd ../..
+    if [ "$DEDICATED_VPC" == 1]; then
+        teardown_vault_vpc
+    fi
+}
+
 function teardown_packer() {
-    printf "$blue" "Destroying packer infrastructure"
+    log_info "Destroying packer infrastructure"
     cd $SCRIPT_DIR/components/vault-ami
-    terraform destroy -force
+    tf_destroy
     cd ../..
 }
 
@@ -108,6 +163,8 @@ function read_config() {
     export TF_VAR_kms_key_alias="$(config_get kms_key_alias)"
     export TF_VAR_aws_profile="$(config_get aws_profile)"
     export AWS_PROFILE=$TF_VAR_aws_profile
+    export DEDICATED_VPC="$(config_get dedicated_vpc)"
+    export TF_VAR_vpc_id="$(config_get vpc_id)"
 }
 
 function write_config() {
@@ -122,6 +179,8 @@ squad_name=$TF_VAR_squad_name
 environment=$TF_VAR_environment
 kms_key_alias=$TF_VAR_kms_key_alias
 aws_profile=$TF_VAR_aws_profile
+dedicated_vpc=$DEDICATED_VPC
+vpc_id=$TF_VAR_vpc_id
 EOF
 }
 
@@ -155,6 +214,7 @@ function help() {
     printf "$green" " --squad=SQUAD              (Squad name to tag instances with)"
     printf "$green" " --zone=DNS_ZONE            (Route 53 zone to add cluster to, ex: cimpress.io)"
     printf "$green" " --no-ami                   (Do not build AMI, useful for quick cluster rebuilds)"
+    printf "$green" " --dedicated_vpc            (Deploy Vault in a dedicated VPC)"
     printf "$green" " --destroy                  (Must specify ONE of the flag below)"
     printf "$green" "   --all                    (Teardown and destroy your vault cluster and data)"
     printf "$green" "   --infra                  (Teardown and destroy your vault cluster only)"
@@ -175,6 +235,9 @@ function check_parameters() {
         TF_VAR_cluster_name="${i#*=}"
         export TF_VAR_cluster_name=$TF_VAR_cluster_name
         shift
+        ;;
+        --dedicated_vpc)
+        DEDICATED_VPC=true
         ;;
         --dns_name=*)
         TF_VAR_dns_name="${i#*=}"
@@ -239,7 +302,7 @@ function check_parameters() {
         D_INFRA=1
         ;;
         *)
-        printf "$red" "Unknown option given: " $i
+        log_error "Unknown option given: " $i
         exit 1
         ;;
 
@@ -318,13 +381,42 @@ function check_parameters() {
                 | grep -Eo '[[:digit:]]{12}'`
 
         if  [ "$?" == "1" ]; then
+            log_error "Could not communicate to AWS.  Please check your AWS client configuration."
             exit 1
         fi
         export TF_VAR_aws_account_id=$AWS_ACCOUNT_ID
     fi
+
+    if [ "$DEDICATED_VPC" == "__UNDEFINED__" ]; then
+        printf "$green" "Do you wish to deploy Vault in a dedicated VPC (n indicates allow user to select VPC) (y/n):"
+        WAIT_FOR_VPCSELECT=1
+        read DEDICATED_VPC
+        while [ $WAIT_FOR_VPCSELECT == "1" ]; do
+            case $DEDICATED_VPC in 
+                y|Y)
+                DEDICATED_VPC=1
+                WAIT_FOR_VPCSELECT=0
+                ;;
+                n|N)
+                DEDICATED_VPC=1
+                WAIT_FOR_VPCSELECT=0
+                ;;
+                *)
+                printf "$green" "Sorry, your entry was not accepted, please try again (y/n):"
+                read DEDICATED_VPC
+            esac
+        done
+    fi
+
 }
 
 #####  MAIN #####
+assert_is_installed "terraform"
+assert_is_installed "packer"
+assert_is_installed "aws"
+assert_is_installed "jq"
+assert_is_installed "go"
+
 read_config
 
 check_parameters $@
@@ -341,13 +433,13 @@ write_config
 
 if [ "$DESTROY" == 1 ]; then
     if [ "$D_ALL" == 1 ] && [[ "$D_INFRA" == 1  || "$D_DATA" == 1 ]]; then
-        printf "$red" "Cannot specify --all with --data and/or -infra"
+        log_error "Cannot specify --all with --data and/or -infra"
         exit 1
     elif [  "$D_INFRA" == 1 ] && [[ "$D_DATA" == 1 || "$D_ALL" == 1 ]]; then
-        printf "$red" "Cannot specify --infra with --data and/or --all"
+        log_error "Cannot specify --infra with --data and/or --all"
         exit 1
     elif [  "$D_DATA" == 1 ] && [[ "$D_INFRA" == 1 || "$D_ALL" == 1 ]]; then
-        printf "$red" "Cannot specify --data with --infra and/or --all"
+        log_error "Cannot specify --data with --infra and/or --all"
         exit 1
     fi
 
@@ -361,7 +453,7 @@ if [ "$DESTROY" == 1 ]; then
     elif [ "$D_DATA" == 1 ]; then
         teardown_manual
     else
-        printf "$red" "You must specify one of --data --infra or --all"
+        log_error "You must specify one of --data --infra or --all"
         exit 1
     fi
 
@@ -370,6 +462,34 @@ fi
 
 if [ -z "$NO_AMI" ]; then
     build_ami
+fi
+
+if [ "$DEDICATED_VPC" == 1 ]; then
+    build_cluster_vpc
+else
+    cd vpcselect 
+    rm -f vpcid.txt
+    go get 
+    if [ $? -ne 0 ]; then
+        log_error "Error: could not retreive go dependencies"
+        exit 1
+    fi
+    go build 
+    if [ $? -ne 0 ]; then
+        log_error "Error: could not build vpcselect?"
+        exit 1
+    fi
+    ./vpcselect 
+    if [ $? -ne 0 ]; then
+        log_error "Error: vpcselect failed?"
+        exit 1
+    fi
+    export TF_VAR_vpc_id=$(cat vpcid.txt)
+    if [ -z "$TF_VAR_vpc_id" ]; then
+        log_error "Could not find VPC information, please check your aws configuration."
+        exit 1
+    fi
+    cd ..
 fi
 
 build_cluster
