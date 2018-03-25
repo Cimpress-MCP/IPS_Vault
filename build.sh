@@ -470,11 +470,15 @@ else
     cd vpcselect 
     rm -f vpcid.txt
     rm -f vpcnetwork.txt
-    go get
-    go build 
-    if [ $? -ne 0 ]; then
-        log_error "Error: could not build vpcselect?"
-        exit 1
+
+    # if vpcselect has been built, don't build it again
+    if [ ! -f ./vpcselect ]; then
+        go get
+        go build 
+        if [ $? -ne 0 ]; then
+            log_error "Error: could not build vpcselect?"
+            exit 1
+        fi
     fi
     ./vpcselect 
     if [ $? -ne 0 ]; then
@@ -493,6 +497,8 @@ fi
 
 build_cluster
 update_kms_alias_role
+
+log_info "Your cluster is now available at https://$TF_VAR_dns_name"
 
 ## exit with last exit code from Terraform
 exit $?
