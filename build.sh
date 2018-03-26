@@ -99,6 +99,8 @@ function build_cluster_vpc() {
     tf_init
     tf_apply
     export TF_VAR_vpc_id=$(terraform output vpc_id 2> /dev/null)
+    export TF_VAR_vpc_public_subnets=$(terraform output vpc_public_subnets 2> /dev/null)
+    export TF_VAR_vpc_private_subnets=$(terraform output vpc_private_subnets 2> /dev/null)
     cd ../..
 }
 
@@ -470,11 +472,15 @@ else
     cd vpcselect 
     rm -f vpcid.txt
     rm -f vpcnetwork.txt
-    go get
-    go build 
-    if [ $? -ne 0 ]; then
-        log_error "Error: could not build vpcselect?"
-        exit 1
+
+    # if vpcselect has been built, don't build it again
+    if [ ! -f ./vpcselect ]; then
+        go get
+        go build 
+        if [ $? -ne 0 ]; then
+            log_error "Error: could not build vpcselect?"
+            exit 1
+        fi
     fi
     ./vpcselect 
     if [ $? -ne 0 ]; then
@@ -487,12 +493,22 @@ else
         exit 1
     fi
     export TF_VAR_vpc_network=$(cat vpcnetwork.txt)
+    export TF_VAR_vpc_public_subnets=$(cat publicsubnets.txt)
+    export TF_VAR_vpc_private_subnets=$(cat privatesubnets.txt)
     write_config
     cd ..
 fi
 
 build_cluster
 update_kms_alias_role
+
+log_info "Your cluster is now available at https://$TF_VAR_dns_name"
+
+cd provisioner 
+if [ ! -f ./provisioner ]; then
+    log_info "Building Provisioner to assist in setting up your cluster"
+    go get
+    go build *.go
 
 ## exit with last exit code from Terraform
 exit $?

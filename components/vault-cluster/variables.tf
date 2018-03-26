@@ -53,3 +53,13 @@ variable "kms_key_alias" {}
 variable "vpc_id" {
   description = "VPC ID to deploy Vault into"
 }
+
+variable "vpc_public_subnets" {
+  type = list
+  description = "ID's of public subnets"
+}
+
+variable "vpc_private_subnets" {
+  type = list
+  description = "ID's of private subnets"
+}

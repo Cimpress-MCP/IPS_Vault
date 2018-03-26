@@ -14,7 +14,7 @@ module "vault_cluster" {
   s3_bucket_name    = "${var.cluster_name}-vault-storage"
 
   vpc_id     = "${var.vpc_id}"
-  subnet_ids = "${data.aws_subnet_ids.public.ids}"
+  subnet_ids = "${var.vpc_public_subnets}"
 
   load_balancers = ["${module.vault_elb.load_balancer_name}"]
 

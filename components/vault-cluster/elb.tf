@@ -9,7 +9,7 @@ module "vault_elb" {
   vpc_id                      = "${var.vpc_id}"
   allowed_inbound_cidr_blocks = ["0.0.0.0/0"]
 
-  subnet_ids = "${data.aws_subnet_ids.public.ids}"
+  subnet_ids = "${var.vpc_public_subnets}"
 
   create_dns_entry = true
   hosted_zone_id   = "${data.aws_route53_zone.default.zone_id}"
