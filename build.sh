@@ -139,7 +139,7 @@ function teardown_cluster() {
     cd $SCRIPT_DIR/components/vault-cluster
     tf_destroy
     cd ../..
-    if [ "$DEDICATED_VPC" == 1]; then
+    if [ "$DEDICATED_VPC" == 1 ]; then
         teardown_vault_vpc
     fi
 }
