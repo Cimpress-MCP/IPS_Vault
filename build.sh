@@ -132,6 +132,7 @@ function teardown_manual() {
 function teardown_vault_vpc() {
     log_info "Destroying Vault Cluster VPC $TF_VAR_cluster_name"
     cd $SCRIPT_DIR/components/vault-vpc
+    tf_init
     tf_destroy
     cd ../..
 }
@@ -139,6 +140,7 @@ function teardown_vault_vpc() {
 function teardown_cluster() {
     log_info "Destroying Vault cluster $TF_VAR_cluster_name"
     cd $SCRIPT_DIR/components/vault-cluster
+    tf_init
     tf_destroy
     cd ../..
     if [ "$DEDICATED_VPC" == 1 ]; then
