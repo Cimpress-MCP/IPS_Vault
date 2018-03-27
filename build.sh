@@ -151,6 +151,7 @@ function teardown_cluster() {
 function teardown_packer() {
     log_info "Destroying packer infrastructure"
     cd $SCRIPT_DIR/components/vault-ami
+    tf_init
     tf_destroy
     cd ../..
 }
