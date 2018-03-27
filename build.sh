@@ -3,6 +3,8 @@
 readonly SCRIPT_DIR="$( cd "$( dirname "$0" )" && pwd )"
 readonly SCRIPT_NAME="$(basename "$0")"
 
+TERRAFORM_ARGS=""
+
 # load configs
 source $SCRIPT_DIR/config.shlib
 
@@ -49,7 +51,7 @@ function assert_is_installed {
 }
 
 function tf_init() {
-    terraform init -upgrade=true > /dev/null
+    terraform init -upgrade=true $TERRAFORM_ARGS > /dev/null
     if [ $? -ne 0 ]; then
         log_error "Error: Terraform initialzation failed"
         exit 1
@@ -57,7 +59,7 @@ function tf_init() {
 }
 
 function tf_apply() {
-    terraform apply --auto-approve
+    terraform apply --auto-approve $TERRAFORM_ARGS
     if [ $? -ne 0 ]; then
         log_error "Error: Terraform apply failed"
         exit 1
@@ -65,7 +67,7 @@ function tf_apply() {
 }
 
 function tf_destroy() {
-    terraform destroy -force
+    terraform destroy -force $TERRAFORM_ARGS
     if [ $? -ne 0 ]; then
         log_error "Error: Terraform did not destroy properly"
         exit 1
@@ -493,8 +495,14 @@ else
         exit 1
     fi
     export TF_VAR_vpc_network=$(cat vpcnetwork.txt)
-    export TF_VAR_vpc_public_subnets=$(cat publicsubnets.txt)
-    export TF_VAR_vpc_private_subnets=$(cat privatesubnets.txt)
+    public_subnets=$(cat publicsubnets.txt)
+    private_subnets=$(cat privatesubnets.txt)
+
+    cat > $SCRIPT_DIR/vars.tfvars << EOF
+vpc_public_subnets=[$public_subnets]
+vpc_private_subnets=[$private_subnets]
+EOF
+    TERRAFORM_ARGS="-var-file=$SCRIPT_DIR/vars.tfvars"
     write_config
     cd ..
 fi

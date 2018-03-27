@@ -98,24 +98,29 @@ func main() {
 	var publicSubnetStr bytes.Buffer
 	var privateSubnetStr bytes.Buffer
 
-	publicSubnetStr.WriteString("[")
-	privateSubnetStr.WriteString("[")
+	//publicSubnetStr.WriteString("[")
+	//privateSubnetStr.WriteString("[")
 
 	for i := 0; i < len(publicSubnets); i++ {
+		publicSubnetStr.WriteString("\"")
 		publicSubnetStr.WriteString(publicSubnets[i].ID)
+		publicSubnetStr.WriteString("\"")
+
 		if i < len(publicSubnets)-1 {
 			publicSubnetStr.WriteString(", ")
 		}
 	}
-	publicSubnetStr.WriteString("]")
+	//publicSubnetStr.WriteString("]")
 
 	for i := 0; i < len(privateSubnets); i++ {
+		privateSubnetStr.WriteString("\"")
 		privateSubnetStr.WriteString(privateSubnets[i].ID)
+		privateSubnetStr.WriteString("\"")
 		if i < len(privateSubnets)-1 {
 			privateSubnetStr.WriteString(", ")
 		}
 	}
-	privateSubnetStr.WriteString("]")
+	//privateSubnetStr.WriteString("]")
 
 	fsPrivate, err := os.Create("privatesubnets.txt")
 	if err != nil {

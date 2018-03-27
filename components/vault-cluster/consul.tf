@@ -13,7 +13,7 @@ module "consul_servers" {
   ami_id = "${data.aws_ami.amazon_linux.image_id}"
 
   vpc_id     = "${var.vpc_id}"
-  subnet_ids = "${var.vpc_private_subnets}"
+  subnet_ids = ["${var.vpc_private_subnets}"]
 
   //associate_public_ip_address = true
 
