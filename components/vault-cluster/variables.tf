@@ -55,11 +55,11 @@ variable "vpc_id" {
 }
 
 variable "vpc_public_subnets" {
-  type = list
+  type        = "list"
   description = "ID's of public subnets"
 }
 
 variable "vpc_private_subnets" {
-  type = list
+  type        = "list"
   description = "ID's of private subnets"
 }
