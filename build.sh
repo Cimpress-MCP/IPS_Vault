@@ -65,7 +65,7 @@ function tf_apply() {
 }
 
 function tf_destroy() {
-    terraform destroy -force > /dev/null
+    terraform destroy -force
     if [ $? -ne 0 ]; then
         log_error "Error: Terraform did not destroy properly"
         exit 1
@@ -449,7 +449,7 @@ if [ "$DESTROY" == 1 ]; then
     fi
 
     if [ "$D_ALL" == 1 ]; then
-        teardown_packer
+        # teardown_packer
         teardown_manual
         teardown_cluster
     elif [ "$D_INFRA" == 1 ]; then
@@ -476,14 +476,11 @@ else
     rm -f vpcid.txt
     rm -f vpcnetwork.txt
 
-    # if vpcselect has been built, don't build it again
-    if [ ! -f ./vpcselect ]; then
-        go get
-        go build 
-        if [ $? -ne 0 ]; then
-            log_error "Error: could not build vpcselect?"
-            exit 1
-        fi
+    go get
+    go build 
+    if [ $? -ne 0 ]; then
+        log_error "Error: could not build vpcselect?"
+        exit 1
     fi
     ./vpcselect 
     if [ $? -ne 0 ]; then
