@@ -504,11 +504,5 @@ update_kms_alias_role
 
 log_info "Your cluster is now available at https://$TF_VAR_dns_name"
 
-cd provisioner 
-if [ ! -f ./provisioner ]; then
-    log_info "Building Provisioner to assist in setting up your cluster"
-    go get
-    go build *.go
-
 ## exit with last exit code from Terraform
 exit $?
