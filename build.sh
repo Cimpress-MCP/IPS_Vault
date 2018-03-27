@@ -101,8 +101,14 @@ function build_cluster_vpc() {
     tf_init
     tf_apply
     export TF_VAR_vpc_id=$(terraform output vpc_id 2> /dev/null)
-    export TF_VAR_vpc_public_subnets=$(terraform output vpc_public_subnets 2> /dev/null)
-    export TF_VAR_vpc_private_subnets=$(terraform output vpc_private_subnets 2> /dev/null)
+    public_subnets=$(terraform output vpc_public_subnets 2> /dev/null)
+    private_subnets=$(terraform output vpc_private_subnets 2> /dev/null)
+    cat > $SCRIPT_DIR/vars.tfvars << EOF
+vpc_public_subnets=[$public_subnets]
+vpc_private_subnets=[$private_subnets]
+EOF
+    TERRAFORM_ARGS="-var-file=$SCRIPT_DIR/vars.tfvars"
+
     cd ../..
 }
 
