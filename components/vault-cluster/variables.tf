@@ -4,7 +4,7 @@ variable "my_ip" {
 
 variable "aws_profile" {
   description = "AWS Profile to use"
-  type = "string"
+  type        = "string"
 }
 
 variable "aws_region" {
@@ -40,7 +40,6 @@ variable "vpc_network" {
   default = "192.168.16.0/24"
 }
 
-
 variable "dns_zone" {}
 
 variable "dns_name" {}
@@ -50,3 +49,19 @@ variable "environment" {}
 variable "squad_name" {}
 
 variable "kms_key_alias" {}
+
+variable "vpc_id" {
+  description = "VPC ID to deploy Vault into"
+}
+
+variable "vpc_public_subnets" {
+  type        = "list"
+  description = "ID's of public subnets"
+  default     = []
+}
+
+variable "vpc_private_subnets" {
+  type        = "list"
+  description = "ID's of private subnets"
+  default     = []
+}

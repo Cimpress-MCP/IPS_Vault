@@ -9,6 +9,8 @@
 # and use the keys to unseal the node.
 #
 
+readonly SCRIPT_DIR="$( cd "$( dirname "$0" )" && pwd )"
+readonly SCRIPT_NAME="$(basename "$0")"
 
 export VAULT_ADDR=http://localhost:8200
 initOutput="/home/ec2-user/vault-init.txt"
@@ -28,13 +30,44 @@ export CHAMBER_KMS_KEY_ALIAS=$KMS_ALIAS
 
 echo "using KMS_KEY alias of $KMS_ALIAS"
 
+function log {
+  local readonly level="$1"
+  local readonly message="$2"
+  local readonly timestamp=$(date +"%Y-%m-%d %H:%M:%S")
+  >&2 echo -e "${timestamp} [${level}] [$SCRIPT_NAME] ${message}"
+}
+
+function log_info {
+  local readonly message="$1"
+  log "INFO" "$message"
+}
+
+function log_warn {
+  local readonly message="$1"
+  log "WARN" "$message"
+}
+
+function log_error {
+  local readonly message="$1"
+  log "ERROR" "$message"
+}
+
+function assert_is_installed {
+  local readonly name="$1"
+
+  if [[ ! $(command -v ${name}) ]]; then
+    log_error "The binary '$name' is required by this script but is not installed or in the system's PATH."
+    exit 1
+  fi
+}
+
 function wait_for_vault_start() {
 	## wait for vault to start
 	while [ -z "`netstat -tln | grep 8200`" ]; do
-		echo "Waiting for Vault to start"
+		log_info "Waiting for Vault to start"
 		sleep 1
 	done
-	echo "Vault has started, we're ready to initialize or unseal"
+	log_info "Vault has started, we're ready to initialize or unseal"
 }
 
 # write a key to paramater store
@@ -42,22 +75,22 @@ function wait_for_vault_start() {
 ## argv2 = keyvalue
 function write_key() {
 	if [ -z "$1" ]; then
-		echo "ERROR: Cannot write key with no name."
+		log_error "ERROR: Cannot write key with no name."
 		return 1
 	fi	
 	keyName=$1
 	
 	if [ -z "$2" ]; then
-		echo "ERROR:  Cannot write key $keyName with no value"
+		log_error "ERROR:  Cannot write key $keyName with no value"
 		return 1
 	fi
 	keyValue=$2
 
 	# write to Chamber, hope it comes back
 	chamber write $CLUSTER_NAME $keyName $keyValue
-	echo "Writing $keyName for cluster $CLUSTER_NAME with value $keyValue"
+	log_info "Writing $keyName for cluster $CLUSTER_NAME with value $keyValue"
 	if [ $? -ne 0 ]; then
-		printf "$red" "Error: Chamber write failed?"
+		log_error "Error: Chamber write failed?"
 		return 1
 	fi
 
@@ -65,12 +98,12 @@ function write_key() {
 	read_key $keyName
 	while [ "$keyVal" != "$keyValue" ]; do
 		## verify write
-		echo "ERROR: Could not read key back from parameter store?? Trying write again"
+		log_warn "Could not read key back from parameter store? Trying write again"
 		chamber write $CLUSTER_NAME $keyName $keyValue
 		sleep 1
 		read_key $keyName
 	done
-	echo "$keyName written as $keyVal to chamber"
+	log_info "$keyName written as $keyVal to chamber"
 
 	return 0
 }
@@ -79,14 +112,14 @@ function write_key() {
 # sets GLOBAL keyVal of return string from paramater store
 function read_key() {
 	if [ -z "$1" ]; then
-		echo "ERROR: Cannot read key with no name."
+		log_error "ERROR: Cannot read key with no name."
 		return ""
 	fi
 	local keyName=$1
 	local keys=$(chamber export $CLUSTER_NAME)
 	keyVal=""
 	if [ "$keys" == "{}" ]; then
-		echo "ERROR: chamber could not find any data for $CLUSTER_NAME"
+		log_error "ERROR: chamber could not find any data for $CLUSTER_NAME"
 		return
 	fi
 
@@ -116,7 +149,7 @@ function read_key() {
 			keyVal=$(echo $keys | jq -r '.node')
 			;;
 		*)
-			echo "could not find key $keyName"
+			log_error "could not find key $keyName"
 			;;
 	esac			
 }
@@ -126,31 +159,31 @@ function unseal_vault() {
 	keyVal=""
 	read_key "key1"
 	while [ $keyVal == "" ]; do
-		echo "waiting for key1 in Parameter Store"
+		log_info "waiting for key1 in Parameter Store"
 		sleep 5
 		read_key "key1"
 	done
-	echo "Unsealing with Key1"
+	log_info "Unsealing with Key1"
 	/usr/local/bin/vault operator unseal $keyVal
 
 	keyVal=""
 	read_key "key2"
 	while [ $keyVal == "" ]; do
-		echo "waiting for key2 in Parameter Store"
+		log_info "waiting for key2 in Parameter Store"
 		sleep 5
 		read_key "key2"
 	done
-	echo "Unsealing with Key2"
+	log_info "Unsealing with Key2"
 	/usr/local/bin/vault operator unseal $keyVal
 	
 	keyVal=""
 	read_key "key3"
 	while [ $keyVal == "" ]; do
-		echo "waiting for key3 in Parameter Store"
+		log_info "waiting for key3 in Parameter Store"
 		sleep 5
 		read_key "key3"
 	done
-	echo "Unsealing with Key3"
+	log_info "Unsealing with Key3"
 	/usr/local/bin/vault operator unseal $keyVal
 }
 
@@ -192,7 +225,7 @@ function wait_for_ready() {
 	read_key status
 	while [ "$keyVal" != "ready" ]; do
 		read_key node
-		echo "Waiting for ready signal in paramater store, instance $keyVal is initializing."
+		log_info "Waiting for ready signal in paramater store, instance $keyVal is initializing."
 		sleep .$[ ( $RANDOM % 4 ) + 1 ]s
 		read_key status
 	done		
@@ -200,7 +233,7 @@ function wait_for_ready() {
 
 #### MAIN ######
 
-echo "Sleeping 1-4 seconds to avoid deadlocks of other init."
+log_info "Sleeping 1-4 seconds to avoid deadlocks of other init."
 sleep .$[ ( $RANDOM % 4 ) + 1 ]s
 
 wait_for_vault_start
