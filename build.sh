@@ -486,11 +486,12 @@ fi
 if [ "$DEDICATED_VPC" == 1 ]; then
     build_cluster_vpc
 else
+    log_info "Please wait while we discover your existing VPC's."
     cd vpcselect 
     rm -f vpcid.txt
     rm -f vpcnetwork.txt
 
-    go get
+    go get >& /dev/null
     go build 
     if [ $? -ne 0 ]; then
         log_error "Error: could not build vpcselect?"
