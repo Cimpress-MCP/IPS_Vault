@@ -14,7 +14,7 @@ module "vault_cluster" {
   s3_bucket_name    = "${var.cluster_name}-vault-storage"
 
   vpc_id     = "${var.vpc_id}"
-  subnet_ids = ["${var.vpc_public_subnets}"]
+  subnet_ids = ["${var.vpc_private_subnets}"]
 
   load_balancers = ["${module.vault_elb.load_balancer_name}"]
 
@@ -23,9 +23,8 @@ module "vault_cluster" {
   allowed_ssh_cidr_blocks            = ["${var.my_ip}"]
   allowed_inbound_security_group_ids = ["${module.vault_elb.load_balancer_security_group_id}"]
 
-  ssh_key_name                = "${var.vault_ssh_key_name}"
-  user_data                   = "${data.template_file.user_data_vault_cluster.rendered}"
-  associate_public_ip_address = true
+  ssh_key_name = "${var.vault_ssh_key_name}"
+  user_data    = "${data.template_file.user_data_vault_cluster.rendered}"
 
   cluster_extra_tags = [
     {
