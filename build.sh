@@ -3,6 +3,8 @@
 readonly SCRIPT_DIR="$( cd "$( dirname "$0" )" && pwd )"
 readonly SCRIPT_NAME="$(basename "$0")"
 
+TERRAFORM_ARGS=""
+
 # load configs
 source $SCRIPT_DIR/config.shlib
 
@@ -49,7 +51,7 @@ function assert_is_installed {
 }
 
 function tf_init() {
-    terraform init -upgrade=true > /dev/null
+    terraform init -upgrade=true $TERRAFORM_ARGS > /dev/null
     if [ $? -ne 0 ]; then
         log_error "Error: Terraform initialzation failed"
         exit 1
@@ -57,7 +59,7 @@ function tf_init() {
 }
 
 function tf_apply() {
-    terraform apply --auto-approve
+    terraform apply --auto-approve $TERRAFORM_ARGS
     if [ $? -ne 0 ]; then
         log_error "Error: Terraform apply failed"
         exit 1
@@ -65,12 +67,14 @@ function tf_apply() {
 }
 
 function tf_destroy() {
-    terraform destroy -force > /dev/null
+    terraform destroy -force $TERRAFORM_ARGS
     if [ $? -ne 0 ]; then
         log_error "Error: Terraform did not destroy properly"
         exit 1
     fi
 }
+
+
 
 function build_ami() {
     cd $SCRIPT_DIR/components/vault-ami
@@ -99,6 +103,18 @@ function build_cluster_vpc() {
     tf_init
     tf_apply
     export TF_VAR_vpc_id=$(terraform output vpc_id 2> /dev/null)
+    ## ask terraform for outputs, the sed is used to double quote each subnet
+    ## ex subnet-786fbc1e,subnet-7eb91936 becomes "subnet-786fbc1e","subnet-7eb91936"
+    public_subnets=$(terraform output vpc_public_subnets 2> /dev/null) 
+    public_subnets=$(echo $public_subnets | sed 's/[^,][^,]*/"&"/g')
+    private_subnets=$(terraform output vpc_private_subnets 2> /dev/null)
+    private_subnets=$(echo $private_subnets | sed 's/[^,][^,]*/"&"/g')
+    cat > $SCRIPT_DIR/vars.tfvars << EOF
+vpc_public_subnets=[$public_subnets]
+vpc_private_subnets=[$private_subnets]
+EOF
+    TERRAFORM_ARGS="-var-file=$SCRIPT_DIR/vars.tfvars"
+
     cd ../..
 }
 
@@ -130,6 +146,7 @@ function teardown_manual() {
 function teardown_vault_vpc() {
     log_info "Destroying Vault Cluster VPC $TF_VAR_cluster_name"
     cd $SCRIPT_DIR/components/vault-vpc
+    tf_init
     tf_destroy
     cd ../..
 }
@@ -137,9 +154,10 @@ function teardown_vault_vpc() {
 function teardown_cluster() {
     log_info "Destroying Vault cluster $TF_VAR_cluster_name"
     cd $SCRIPT_DIR/components/vault-cluster
+    tf_init
     tf_destroy
     cd ../..
-    if [ "$DEDICATED_VPC" == 1]; then
+    if [ "$DEDICATED_VPC" == 1 ]; then
         teardown_vault_vpc
     fi
 }
@@ -147,6 +165,7 @@ function teardown_cluster() {
 function teardown_packer() {
     log_info "Destroying packer infrastructure"
     cd $SCRIPT_DIR/components/vault-ami
+    tf_init
     tf_destroy
     cd ../..
 }
@@ -462,7 +481,7 @@ if [ "$DESTROY" == 1 ]; then
     fi
 
     if [ "$D_ALL" == 1 ]; then
-        teardown_packer
+        # teardown_packer
         teardown_manual
         teardown_cluster
     elif [ "$D_INFRA" == 1 ]; then
@@ -485,10 +504,12 @@ fi
 if [ "$DEDICATED_VPC" == 1 ]; then
     build_cluster_vpc
 else
+    log_info "Please wait while we discover your existing VPC's."
     cd vpcselect 
     rm -f vpcid.txt
     rm -f vpcnetwork.txt
 
+<<<<<<< HEAD
     # if vpcselect has been built, don't build it again
     if [ ! -f ./vpcselect ]; then
         go get
@@ -497,6 +518,13 @@ else
             log_error "Error: could not build vpcselect?"
             exit 1
         fi
+=======
+    go get >& /dev/null
+    go build 
+    if [ $? -ne 0 ]; then
+        log_error "Error: could not build vpcselect?"
+        exit 1
+>>>>>>> feature/vpc_select
     fi
     ./vpcselect 
     if [ $? -ne 0 ]; then
@@ -509,6 +537,14 @@ else
         exit 1
     fi
     export TF_VAR_vpc_network=$(cat vpcnetwork.txt)
+    public_subnets=$(cat publicsubnets.txt)
+    private_subnets=$(cat privatesubnets.txt)
+
+    cat > $SCRIPT_DIR/vars.tfvars << EOF
+vpc_public_subnets=[$public_subnets]
+vpc_private_subnets=[$private_subnets]
+EOF
+    TERRAFORM_ARGS="-var-file=$SCRIPT_DIR/vars.tfvars"
     write_config
     cd ..
 fi
@@ -516,10 +552,13 @@ fi
 build_cluster
 update_kms_alias_role
 
+<<<<<<< HEAD
 if ! [ -z "$REMOTE_TFSTATE" ]; then
     aws s3 cp $SCRIPT_DIR/components/vault-cluster/terraform.tfstate s3://${REMOTE_TFSTATE}/
 fi
 
+=======
+>>>>>>> feature/vpc_select
 log_info "Your cluster is now available at https://$TF_VAR_dns_name"
 
 ## exit with last exit code from Terraform
