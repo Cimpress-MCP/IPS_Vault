@@ -105,8 +105,10 @@ function build_cluster_vpc() {
     export TF_VAR_vpc_id=$(terraform output vpc_id 2> /dev/null)
     ## ask terraform for outputs, the sed is used to double quote each subnet
     ## ex subnet-786fbc1e,subnet-7eb91936 becomes "subnet-786fbc1e","subnet-7eb91936"
-    public_subnets=$(terraform output vpc_public_subnets 2> /dev/null | sed 's/[^,][^,]*/"&"/g')
-    private_subnets=$(terraform output vpc_private_subnets 2> /dev/null | sed 's/[^,][^,]*/"&"/g')
+    public_subnets=$(terraform output vpc_public_subnets 2> /dev/null) 
+    public_subnets=$(echo $public_subnets | sed 's/[^,][^,]*/"&"/g')
+    private_subnets=$(terraform output vpc_private_subnets 2> /dev/null)
+    private_subnets=$(echo $private_subnets | sed 's/[^,][^,]*/"&"/g')
     cat > $SCRIPT_DIR/vars.tfvars << EOF
 vpc_public_subnets=[$public_subnets]
 vpc_private_subnets=[$private_subnets]
