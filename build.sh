@@ -165,6 +165,8 @@ function read_config() {
     export AWS_PROFILE=$TF_VAR_aws_profile
     export DEDICATED_VPC="$(config_get dedicated_vpc)"
     export TF_VAR_vpc_id="$(config_get vpc_id)"
+
+    REMOTE_TFSTATE="$(config_get remote_tfstate)"
 }
 
 function write_config() {
@@ -181,6 +183,7 @@ kms_key_alias=$TF_VAR_kms_key_alias
 aws_profile=$TF_VAR_aws_profile
 dedicated_vpc=$DEDICATED_VPC
 vpc_id=$TF_VAR_vpc_id
+remote_tfstate=$REMOTE_TFSTATE
 EOF
 }
 
@@ -219,6 +222,7 @@ function help() {
     printf "$green" "   --all                    (Teardown and destroy your vault cluster and data)"
     printf "$green" "   --infra                  (Teardown and destroy your vault cluster only)"
     printf "$green" "   --data                   (Destroy your vault data only)"
+    printf "$green" " --remote-tfstate=BUCKET_NAME   (Upload terraform's state file to the specified S3 bucket"
 
     exit 0
 }
@@ -277,6 +281,10 @@ function check_parameters() {
         --zone=*)
         TF_VAR_dns_zone="${i#*=}"
         export TF_VAR_dns_zone=$TF_VAR_dns_zone
+        shift
+        ;;
+        --remote-tfstate=*)
+        REMOTE_TFSTATE="${i#*=}"
         shift
         ;;
         -h|-?|--help)
@@ -408,6 +416,16 @@ function check_parameters() {
         done
     fi
 
+    if [ "$REMOTE_TFSTATE" == "__UNDEFINED__" ]; then
+        printf "$green" "Do you want to store your tfstate in an S3 bucket? If yes, what's the name of the bucket? (type 'no' to save it locally):"
+        read REMOTE_TFSTATE
+
+        if [ "$REMOTE_TFSTATE" == "no" ]; then
+            REMOTE_TFSTATE=""
+        fi
+        echo ""
+    fi
+
 }
 
 #####  MAIN #####
@@ -497,6 +515,10 @@ fi
 
 build_cluster
 update_kms_alias_role
+
+if ! [ -z "$REMOTE_TFSTATE" ]; then
+    aws s3 cp $SCRIPT_DIR/components/vault-cluster/terraform.tfstate s3://${REMOTE_TFSTATE}/
+fi
 
 log_info "Your cluster is now available at https://$TF_VAR_dns_name"
 
