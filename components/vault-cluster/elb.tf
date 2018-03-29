@@ -3,7 +3,7 @@ data "aws_route53_zone" "default" {
 }
 
 module "vault_elb" {
-  source = "git::https://github.com/Cimpress-MCP/terraform-aws-vault.git//modules/vault-elb?ref=v0.0.9.1"
+  source = "git::https://github.com/Cimpress-MCP/terraform-aws-vault.git//modules/vault-elb"
 
   name                        = "${var.cluster_name}-vault-elb"
   vpc_id                      = "${var.vpc_id}"
