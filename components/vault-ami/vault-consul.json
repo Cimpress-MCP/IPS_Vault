@@ -115,7 +115,15 @@
       "sudo cp /home/ec2-user/run-vaultsetup.conf /etc/supervisor/conf.d/run-vaultsetup.conf",
       "sudo chown root:root /etc/supervisor/conf.d/run-vaultsetup.conf"
     ]
-  }
+  },
+  {
+      "type" : "shell",
+      "inline" : [
+        "git clone https://github.com/nozaq/amazon-linux-cis.git",
+        "sudo python amazon-linux-cis/__main__.py",
+        "rm -rf amazon-linux-cis"
+      ]
+    }
 
 ]
 }
