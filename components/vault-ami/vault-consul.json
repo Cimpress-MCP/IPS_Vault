@@ -14,6 +14,7 @@
   },
   "builders": [
     {
+      "encrypt_boot" : "true",
     "profile"          : "{{user `aws_profile`}}",
     "vpc_id"           : "{{user `vpc_id`}}",
     "subnet_id"        : "{{user `subnet_id`}}",
