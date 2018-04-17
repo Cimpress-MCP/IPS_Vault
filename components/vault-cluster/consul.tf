@@ -1,6 +1,5 @@
 module "consul_servers" {
-  # we no longer use the public 
-  source = "git::https://github.com/hashicorp/terraform-aws-consul.git//modules/consul-cluster?ref=v0.0.5"
+  source = "git::https://github.com/hashicorp/terraform-aws-consul.git//modules/consul-cluster?ref=v0.3.3"
 
   cluster_name  = "${var.cluster_name}-consul"
   cluster_size  = 3
@@ -41,6 +40,23 @@ module "consul_servers" {
     }
   ]
 */
+}
+
+# ---------------------------------------------------------------------------------------------------------------------
+# PERMIT CONSUL SPECIFIC TRAFFIC IN VAULT CLUSTER
+# To allow our Vault servers consul agents to communicate with other consul agents and participate in the LAN gossip,
+# we open up the consul specific protocols and ports for consul traffic
+# ---------------------------------------------------------------------------------------------------------------------
+
+module "security_group_rules" {
+  source = "github.com/hashicorp/terraform-aws-consul.git//modules/consul-client-security-group-rules?ref=v0.3.3"
+
+  security_group_id = "${module.vault_cluster.security_group_id}"
+
+  # To make testing easier, we allow requests from any IP address here but in a production deployment, we *strongly*
+  # recommend you limit this to the IP address ranges of known, trusted servers inside your VPC.
+
+  allowed_inbound_cidr_blocks = ["0.0.0.0/0"]
 }
 
 # ---------------------------------------------------------------------------------------------------------------------

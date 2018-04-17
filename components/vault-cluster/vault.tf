@@ -13,10 +13,9 @@ module "vault_cluster" {
   enable_s3_backend = true
   s3_bucket_name    = "${var.cluster_name}-vault-storage"
 
-  vpc_id     = "${var.vpc_id}"
-  subnet_ids = ["${var.vpc_private_subnets}"]
-
-  load_balancers = ["${module.vault_elb.load_balancer_name}"]
+  vpc_id                      = "${var.vpc_id}"
+  subnet_ids                  = ["${var.vpc_public_subnets}"]
+  associate_public_ip_address = true
 
   allowed_inbound_cidr_blocks = ["${var.my_ip}"]
 
@@ -60,9 +59,15 @@ module "vault_cluster" {
   ]
 }
 
-## this allows vault to discover consul servers
-module "consul_iam_policies_server" {
-  source      = "git::https://github.com/hashicorp/terraform-aws-consul.git//modules/consul-iam-policies?ref=v0.0.5"
+# ---------------------------------------------------------------------------------------------------------------------
+# ATTACH IAM POLICIES FOR CONSUL
+# To allow our Vault servers to automatically discover the Consul servers, we need to give them the IAM permissions from
+# the Consul AWS Module's consul-iam-policies module.
+# ---------------------------------------------------------------------------------------------------------------------
+
+module "consul_iam_policies_servers" {
+  source = "github.com/hashicorp/terraform-aws-consul.git//modules/consul-iam-policies?ref=v0.3.3"
+
   iam_role_id = "${module.vault_cluster.iam_role_id}"
 }
 
