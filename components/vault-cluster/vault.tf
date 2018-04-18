@@ -1,5 +1,5 @@
 module "vault_cluster" {
-  source = "git::https://github.com/Cimpress-MCP/terraform-aws-vault.git//modules/vault-cluster"
+  source = "git::https://github.com/Cimpress-MCP/terraform-aws-vault.git//modules/vault-cluster?v0.10.0"
 
   kms_key_alias = "${var.kms_key_alias}"
 
