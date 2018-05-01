@@ -39,14 +39,10 @@
 ],
   "provisioners": [
     {
-      "type"       : "file",
-      "source"     : "./scripts/vaultsetup.sh",
-      "destination": "./vaultsetup.sh"
-    },   {
-      "type"       : "file",
-      "source"     : "./scripts/installchamber.sh",
-      "destination": "./installchamber.sh"
-    }, 
+      "type" : "file",
+      "source" : "./scripts",
+      "destination" : "."
+     },
      {
       "type"  : "shell",
       "inline": [
@@ -55,27 +51,23 @@
         "sudo yum install -y golang-bin"
       ]
     },
-    { 
-      "type"  : "shell",
-      "inline": [
-        "echo VAULT_ADDR=http://localhost:8200 >> /home/ec2-user/.bash_profile",
-        "echo export VAULT_ADDR >> /home/ec2-user/.bash_profile",
-        "echo GOPATH=/home/ec2-user/go >> /home/ec2-user/.bash_profile",
-        "echo export GOPATH >> /home/ec2-user/.bash_profile"
-      ]
-    },
     {
       "type"  : "shell",
       "inline": [
-        "./installchamber.sh"
+        "./scripts/installinspector.sh"
       ]
     }, 
     {
       "type"  : "shell",
       "inline": [
-        "wget https://d1wk0tztpsntt1.cloudfront.net/linux/latest/install && sudo bash install"
+        "echo VAULT_ADDR=http://localhost:8200 >> /home/ec2-user/.bash_profile",
+        "echo export VAULT_ADDR >> /home/ec2-user/.bash_profile",
+        "echo GOPATH=/home/ec2-user/go >> /home/ec2-user/.bash_profile",
+        "echo export GOPATH >> /home/ec2-user/.bash_profile",
+        "./scripts/installchamber.sh"
       ]
-    }, {
+    }, 
+    {
       "type"  : "shell",
       "inline": [
         "sudo service rpcbind stop",
@@ -112,7 +104,8 @@
     "type"  : "shell",
     "inline": [
       "sudo cp /home/ec2-user/run-vaultsetup.conf /etc/supervisor/conf.d/run-vaultsetup.conf",
-      "sudo chown root:root /etc/supervisor/conf.d/run-vaultsetup.conf"
+      "sudo chown root:root /etc/supervisor/conf.d/run-vaultsetup.conf",
+      "ln -s ./scripts/vaultsetup.sh ."
     ]
   }
 
