@@ -39,8 +39,22 @@ assert_is_installed "go"
 export GOPATH=~/go
 mkdir go
 
+log_info "Cloning Chamber from GitHub"
 git clone https://github.com/segmentio/chamber.git
+if [ $? -ne 0 ]; then
+    log_error "Error: Git Clone failed"
+    exit 1 
+fi
 cd chamber
 go get
+if [ $? -ne 0 ]; then
+    log_error "Error: Go failed to download dependencies for Chamber build"
+    exit 1 
+fi
 go build
+if [ $? -ne 0 ]; then
+    log_error "Error: Go failed to build Chamber"
+    exit 1 
+fi
 sudo mv chamber /usr/bin
+exit 0
