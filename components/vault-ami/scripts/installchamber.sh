@@ -47,10 +47,6 @@ if [ $? -ne 0 ]; then
 fi
 cd chamber
 go get
-if [ $? -ne 0 ]; then
-    log_error "Error: Go failed to download dependencies for Chamber build"
-    exit 1 
-fi
 go build
 if [ $? -ne 0 ]; then
     log_error "Error: Go failed to build Chamber"
