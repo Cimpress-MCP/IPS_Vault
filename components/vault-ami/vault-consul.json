@@ -23,7 +23,7 @@
     "name"             : "amazon-linux-ami",
     "region"           : "{{user `aws_region`}}",
     "type"             : "amazon-ebs",
-    "encrypt_boot" : true,
+    "encrypt_boot"     : true,
     "source_ami_filter": {
       "filters": {
         "virtualization-type"             : "hvm",
